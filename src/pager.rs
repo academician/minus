@@ -402,10 +402,18 @@ mod tests {
         *RUNMODE.lock() = RunMode::Uninitialized;
 
         let pager = Pager::new();
+        pager.set_exit_strategy(ExitStrategy::PagerQuit).unwrap();
         pager.follow_output(true).unwrap();
 
         let pager2 = pager.clone();
         let pager_thread = std::thread::spawn(move || crate::dynamic_pager::dynamic_paging(pager2));
+
+        // Wait for the pager to initialize and start the event loop
+        while RUNMODE.lock().is_uninitialized() {
+            std::thread::yield_now();
+        }
+        // Brief delay to ensure the reactor has entered its receive loop
+        std::thread::sleep(std::time::Duration::from_millis(50));
 
         pager.tx.send(Command::UserInput(InputEvent::Exit)).unwrap();
 
